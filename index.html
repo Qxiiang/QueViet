@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Học Tiếng Việt Cơ Bản • 实用越南语教程</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    body.hide-zh .zh-text {
+      display: none !important;
+    }
+    /* Placeholder cho bảng trắng */
+    #whiteboard-editor:empty:before {
+      content: attr(data-placeholder);
+      color: #94a3b8;
+      pointer-events: none;
+    }
+    /* Tùy chỉnh thanh cuộn */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased">
+
+  <!-- Nền tối khi mở Sidebar trên điện thoại -->
+  <div id="sidebar-backdrop" class="fixed inset-0 bg-slate-900/40 z-30 hidden lg:hidden"></div>
+
+  <div class="min-h-screen flex">
+    <!-- SIDEBAR TRÁI -->
+    <aside id="lesson-sidebar" class="fixed lg:sticky top-0 left-0 z-40 h-screen w-72 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 -translate-x-full lg:translate-x-0 shrink-0">
+      <!-- Logo / Tiêu đề web -->
+      <div class="px-4 py-4 bg-emerald-700 text-white flex items-center justify-between">
+        <div>
+          <h1 class="font-bold text-base tracking-tight">TIẾNG VIỆT CƠ BẢN</h1>
+          <p class="zh-text text-xs text-emerald-100">实用越南语在线课堂</p>
+        </div>
+        <button id="close-sidebar-btn" class="lg:hidden text-white/80 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Khu vực Nút Bảng Trắng + Chọn Giáo Trình -->
+      <div class="p-3.5 border-b border-slate-200 bg-slate-50 space-y-2.5">
+        <!-- NÚT MỞ BẢNG TRẮNG (Đặt ngay trên phần chọn giáo trình) -->
+        <button
+          type="button"
+          id="open-whiteboard-btn"
+          class="w-full py-2.5 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <i class="fa-solid fa-chalkboard-user"></i>
+          <span>Bảng trắng giảng bài</span>
+        </button>
+
+        <!-- Phần chọn giáo trình -->
+        <div>
+          <label for="book-selector" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            Chọn giáo trình (选择教材)
+          </label>
+          <select id="book-selector" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:border-emerald-600">
+            <option value="A1">Trình độ A - Quyển 1 (A1)</option>
+            <option value="A2" selected>Trình độ A - Quyển 2 (A2)</option>
+            <option value="B1">Trình độ B - Quyển 1 (B1)</option>
+            <option value="B2">Trình độ B - Quyển 2 (B2)</option>
+            <option value="C1">Trình độ C - Quyển 1 (C1)</option>
+            <option value="C2">Trình độ C - Quyển 2 (C2)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tên sách hiện tại -->
+      <div class="px-4 py-2.5 bg-emerald-50/70 border-b border-emerald-100">
+        <p id="book-header-vi" class="text-xs font-bold text-emerald-900"></p>
+        <p id="book-header-zh" class="zh-text text-[11px] text-emerald-700"></p>
+      </div>
+
+      <!-- Danh sách bài học -->
+      <div id="lesson-sidebar-list" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+    </aside>
+
+    <!-- NỘI DUNG CHÍNH BÊN PHẢI -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Thanh công cụ trên cùng -->
+      <header class="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <button id="mobile-sidebar-btn" class="lg:hidden p-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <span id="lesson-badge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800"></span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="toggle-zh-btn" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-language text-emerald-600"></i>
+            <span id="toggle-zh-label">Ẩn tiếng Trung</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Banner tiêu đề bài học -->
+      <section class="bg-gradient-to-r from-emerald-800 to-teal-700 text-white px-4 sm:px-8 py-6">
+        <div class="max-w-5xl mx-auto">
+          <h2 id="lesson-title-vi" class="text-xl sm:text-2xl font-bold"></h2>
+          <p id="lesson-title-zh" class="zh-text text-sm sm:text-base text-emerald-100 mt-1"></p>
+          <div id="lesson-objectives" class="flex flex-wrap gap-2 mt-4"></div>
+        </div>
+      </section>
+
+      <!-- Thanh 4 Tab chính -->
+      <nav class="bg-white border-b border-slate-200 px-4 sm:px-8 py-2.5 sticky top-[53px] z-10">
+        <div class="max-w-5xl mx-auto flex flex-wrap gap-2">
+          <button data-tab="vocab" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-pointer">
+            <i class="fa-solid fa-spell-check mr-1.5"></i>1. Từ mới <span class="zh-text font-normal">(生词)</span>
+          </button>
+          <button data-tab="reading" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
+            <i class="fa-solid fa-comments mr-1.5"></i>2. Hội thoại & Bài đọc <span class="zh-text font-normal">(课文)</span>
+          </button>
+          <button data-tab="grammar" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
+            <i class="fa-solid fa-book-open mr-1.5"></i>3. Ngữ pháp <span class="zh-text font-normal">(语法)</span>
+          </button>
+          <button data-tab="practice" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
+            <i class="fa-solid fa-pen-to-square mr-1.5"></i>4. Luyện tập <span class="zh-text font-normal">(练习)</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Vùng hiển thị nội dung từng Tab -->
+      <main class="flex-1 px-4 sm:px-8 py-6">
+        <div class="max-w-5xl mx-auto">
+          <div id="tab-vocab" class="tab-content"></div>
+          <div id="tab-reading" class="tab-content hidden"></div>
+          <div id="tab-grammar" class="tab-content hidden"></div>
+          <div id="tab-practice" class="tab-content hidden"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- CỬA SỔ BẢNG TRẮNG GIẢNG BÀI (WHITEBOARD OVERLAY)                      -->
+  <!-- ===================================================================== -->
+  <div id="whiteboard-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-[1px] hidden flex items-center justify-center p-3 sm:p-6">
+    <div id="whiteboard-box" class="bg-white w-full max-w-4xl h-[80vh] rounded-2xl shadow-2xl border border-slate-300 flex flex-col overflow-hidden transition-all duration-200">
+      <!-- Thanh công cụ Bảng trắng -->
+      <div class="bg-slate-800 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-chalkboard-user text-amber-400"></i>
+          <span class="font-bold text-sm">Bảng trắng giảng bài</span>
+        </div>
+
+        <!-- Công cụ định dạng chữ & phát âm -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <!-- Đổi màu chữ -->
+          <button type="button" onclick="formatBoardColor('#0f172a')" title="Chữ màu đen" class="w-6 h-6 rounded-full bg-slate-900 border-2 border-white cursor-pointer"></button>
+          <button type="button" onclick="formatBoardColor('#dc2626')" title="Chữ màu đỏ" class="w-6 h-6 rounded-full bg-red-600 border-2 border-white cursor-pointer"></button>
+          <button type="button" onclick="formatBoardColor('#059669')" title="Chữ màu xanh lá" class="w-6 h-6 rounded-full bg-emerald-600 border-2 border-white cursor-pointer"></button>
+          <button type="button" onclick="formatBoardColor('#2563eb')" title="Chữ màu xanh dương" class="w-6 h-6 rounded-full bg-blue-600 border-2 border-white cursor-pointer"></button>
+
+          <span class="h-4 w-[1px] bg-slate-600 mx-1"></span>
+
+          <!-- Cỡ chữ -->
+          <button type="button" id="wb-font-dec" class="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-bold cursor-pointer">A-</button>
+          <button type="button" id="wb-font-inc" class="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-bold cursor-pointer">A+</button>
+
+          <span class="h-4 w-[1px] bg-slate-600 mx-1"></span>
+
+          <!-- Đọc chữ trên bảng -->
+          <button type="button" id="wb-speak-btn" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold flex items-center gap-1 cursor-pointer">
+            <i class="fa-solid fa-volume-high"></i> Đọc bảng
+          </button>
+
+          <!-- Xóa sạch bảng -->
+          <button type="button" id="wb-clear-btn" class="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-xs font-semibold flex items-center gap-1 cursor-pointer">
+            <i class="fa-solid fa-eraser"></i> Xóa bảng
+          </button>
+
+          <!-- Phóng to / Thu nhỏ -->
+          <button type="button" id="wb-fullscreen-btn" title="Toàn màn hình" class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs cursor-pointer">
+            <i class="fa-solid fa-expand"></i>
+          </button>
+
+          <!-- Đóng bảng trắng (vẫn giữ nội dung) -->
+          <button type="button" id="close-whiteboard-btn" title="Đóng bảng" class="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-xs font-bold cursor-pointer">
+            <i class="fa-solid fa-xmark"></i> Đóng
+          </button>
+        </div>
+      </div>
+
+      <!-- Vùng gõ nội dung bảng trắng -->
+      <div
+        id="whiteboard-editor"
+        contenteditable="true"
+        spellcheck="false"
+        data-placeholder="Gõ từ mới, cấu trúc câu hoặc ví dụ giảng bài tại đây..."
+        class="flex-1 p-6 overflow-y-auto focus:outline-none text-slate-900 leading-relaxed bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:20px_20px]"
+        style="font-size: 24px;"
+      ></div>
+    </div>
+  </div>
+
+  <script src="data/books-index.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
