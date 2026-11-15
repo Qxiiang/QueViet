@@ -39,31 +39,41 @@ document.addEventListener("DOMContentLoaded", () => {
   if (closeSidebarBtn) closeSidebarBtn.addEventListener("click", closeMobileSidebar);
   if (backdrop) backdrop.addEventListener("click", closeMobileSidebar);
 
-  // Hàm phát âm tiếng Việt
-  window.speakVi = function (text, rate = 0.95, el = null) {
-    if (!("speechSynthesis" in window)) {
-      alert("Trình duyệt của bạn không hỗ trợ đọc giọng nói.");
-      return;
+  // Hàm phát âm tiếng Việt (gọi qua /api/tts của server.py)
+  window.speakVi = function (text, rate = 0.9, el = null) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+
+    const saved = Number(localStorage.getItem("vn_speak_rate") || "0.9");
+    const base = Number.isFinite(saved) ? saved : 0.9;
+    const speed = rate <= 0.7 ? Math.max(0.55, base * 0.75) : base;
+
+    if (window.__vnAudio) {
+      window.__vnAudio.pause();
+      window.__vnAudio = null;
     }
-    window.speechSynthesis.cancel();
 
     document.querySelectorAll(".speaking-pill").forEach((item) => {
       item.classList.remove("speaking-pill", "ring-2", "ring-emerald-400", "bg-emerald-200");
     });
+    if (el) el.classList.add("speaking-pill", "ring-2", "ring-emerald-400", "bg-emerald-200");
 
-    if (el) {
-      el.classList.add("speaking-pill", "ring-2", "ring-emerald-400", "bg-emerald-200");
-    }
+    const audio = new Audio("/api/tts?text=" + encodeURIComponent(clean));
+    audio.preservesPitch = true;
+    audio.webkitPreservesPitch = true;
+    const apply = () => { audio.playbackRate = speed; };
+    apply();
+    audio.addEventListener("loadedmetadata", apply);
+    audio.addEventListener("ended", () => {
+      if (el) el.classList.remove("speaking-pill", "ring-2", "ring-emerald-400", "bg-emerald-200");
+    });
+    audio.addEventListener("error", () => {
+      if (el) el.classList.remove("speaking-pill", "ring-2", "ring-emerald-400", "bg-emerald-200");
+      alert("Chưa tạo được giọng đọc. Kiểm tra server và mạng.");
+    });
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "vi-VN";
-    utterance.rate = rate;
-    utterance.onend = () => {
-      if (el) {
-        el.classList.remove("speaking-pill", "ring-2", "ring-emerald-400", "bg-emerald-200");
-      }
-    };
-    window.speechSynthesis.speak(utterance);
+    window.__vnAudio = audio;
+    audio.play();
   };
 
   // Hàm tạo Tab con (Sub-tabs)
@@ -264,6 +274,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Thanh chọn tốc độ đọc (Chậm / Vừa / Chuẩn)
+  const rateBtns = document.querySelectorAll(".rate-btn");
+  if (rateBtns.length) {
+    const savedRate = localStorage.getItem("vn_speak_rate") || "0.9";
+
+    const markActive = (activeBtn) => {
+      rateBtns.forEach((b) => {
+        b.classList.remove("border-emerald-600", "bg-emerald-50");
+        b.classList.add("border-slate-300");
+      });
+      activeBtn.classList.add("border-emerald-600", "bg-emerald-50");
+      activeBtn.classList.remove("border-slate-300");
+    };
+
+    // Khôi phục nút đang chọn sau khi tải lại trang
+    const initialActive = Array.from(rateBtns).find((b) => b.dataset.rate === savedRate) || rateBtns[1];
+    markActive(initialActive);
+
+    rateBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        localStorage.setItem("vn_speak_rate", btn.dataset.rate);
+        markActive(btn);
+      });
+    });
+  }
+
   // Chuyển Tab nội dung chính
   const tabBtns = document.querySelectorAll(".tab-btn");
   const tabContents = document.querySelectorAll(".tab-content");
@@ -282,7 +318,50 @@ document.addEventListener("DOMContentLoaded", () => {
       if (targetEl) targetEl.classList.remove("hidden");
     });
   });
+  // Hàm tự động tải trước âm thanh của bài đang mở
+  function prefetchLessonAudio(lesson) {
+    const texts = new Set();
+    (lesson.vocabGroups || []).forEach(g => {
+      (g.words || []).forEach(w => {
+        if (w.vi) texts.add(w.vi);
+        if (w.exVi) texts.add(w.exVi);
+        (w.collocations || []).forEach(c => {
+          if (c.vi) texts.add(c.vi.replace(/~/g, w.vi)); // Xử lý dấu ~
+        });
+      });
+    });
+    (lesson.dialogues || []).forEach(d => {
+      const full = (d.lines || []).map(x => x.vi).join(" ");
+      if (full) texts.add(full);
+      (d.lines || []).forEach(line => { if (line.vi) texts.add(line.vi); });
+    });
+    if (lesson.reading) {
+      const fullR = (lesson.reading.paragraphs || []).map(p => p.vi).join(" ");
+      if (fullR) texts.add(fullR);
+    }
+    (lesson.grammar || []).forEach(g => {
+      (g.examples || []).forEach(ex => { if (ex.vi) texts.add(ex.vi); });
+    });
+    const ex = lesson.exercises || {};
+    (ex.listeningFill?.items || []).forEach(it => { if (it.fullAudio) texts.add(it.fullAudio); });
+    if (ex.trueFalseQuiz?.audioText) texts.add(ex.trueFalseQuiz.audioText);
+    const wo = Array.isArray(ex.wordOrder) ? {items: ex.wordOrder} : ex.wordOrder;
+    (wo?.items || []).forEach(it => { if (it.correct) texts.add(it.correct); });
+    if (ex.dictationText) texts.add(ex.dictationText);
 
+    const arr = [...texts].filter(t => t && t.trim().length > 1);
+    if (!arr.length) return;
+
+    let i = 0;
+    async function worker() {
+      while (i < arr.length) {
+        const t = arr[i++];
+        try { await fetch("/api/tts?text=" + encodeURIComponent(t)); } catch (e) {}
+      }
+    }
+    // Chạy 4 luồng tải ngầm
+    for (let k = 0; k < 4; k++) worker();
+  }
   function renderLesson(lesson) {
     const badgeEl = document.getElementById("lesson-badge");
     const titleViEl = document.getElementById("lesson-title-vi");
@@ -308,6 +387,8 @@ document.addEventListener("DOMContentLoaded", () => {
     renderReadingTab(lesson);
     renderGrammarTab(lesson);
     renderPracticeTab(lesson);
+    // Tải ngầm âm thanh sau khi render xong 0.5s
+    setTimeout(() => prefetchLessonAudio(lesson), 500);
   }
 
   // =========================================================================
