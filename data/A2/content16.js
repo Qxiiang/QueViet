@@ -352,31 +352,31 @@ Object.assign(window.LESSONS_DATA["A2"][16], {
       titleZh: "练习三（教材第12题）：连词成句（点击词语按顺序排列）",
       items: [
         {
-          words: ["anh Peter", "bưu điện", "đi", "gửi bưu phẩm", "để."],
+          words: ["anh Peter", "bưu điện", "đi", "gửi bưu phẩm", "để"],
           correct: "Anh Peter đi bưu điện để gửi bưu phẩm."
         },
         {
-          words: ["chị Anna", "đi", "để", "ngân hàng", "rút tiền."],
+          words: ["chị Anna", "đi", "để", "ngân hàng", "rút tiền"],
           correct: "Chị Anna đi ngân hàng để rút tiền."
         },
         {
-          words: ["ông Hoàng", "về Việt Nam", "bay", "hôm qua."],
+          words: ["ông Hoàng", "về Việt Nam", "bay", "hôm qua"],
           correct: "Ông Hoàng bay về Việt Nam hôm qua."
         },
         {
-          words: ["hiện nay", "sống", "anh ấy", "Hà Nội", "ở", "đang."],
+          words: ["hiện nay", "sống", "anh ấy", "Hà Nội", "ở", "đang"],
           correct: "Hiện nay anh ấy đang sống ở Hà Nội."
         },
         {
-          words: ["bà Linda", "thành phố Hồ Chí Minh", "làm việc", "ở", "rồi", "2 năm."],
+          words: ["bà Linda", "thành phố Hồ Chí Minh", "làm việc", "ở", "rồi", "2 năm"],
           correct: "Bà Linda làm việc ở thành phố Hồ Chí Minh 2 năm rồi."
         },
         {
-          words: ["nó", "bay", "về Việt Nam", "Singapore", "từ."],
+          words: ["nó", "bay", "về Việt Nam", "Singapore", "từ"],
           correct: "Nó bay từ Singapore về Việt Nam."
         },
         {
-          words: ["họ", "Đức", "về Việt Nam", "hôm qua", "từ."],
+          words: ["họ", "Đức", "về Việt Nam", "hôm qua", "từ"],
           correct: "Họ từ Đức về Việt Nam hôm qua."
         }
       ]
