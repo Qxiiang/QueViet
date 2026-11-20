@@ -91,12 +91,24 @@
           <span id="lesson-badge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800"></span>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Menu chọn giọng đọc tự động theo trình duyệt -->
+          <div class="flex items-center gap-1">
+            <i class="fa-solid fa-microphone-lines text-emerald-600 text-xs hidden sm:inline"></i>
+            <select
+              id="voice-selector"
+              title="Chọn giọng đọc có sẵn trên trình duyệt"
+              class="max-w-[145px] sm:max-w-[190px] px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-600 cursor-pointer"
+            >
+              <option value="">Giọng đọc: Tự động</option>
+            </select>
+          </div>
+
           <!-- Thanh chọn tốc độ đọc -->
           <div class="flex items-center gap-1">
-            <button type="button" data-rate="0.75" class="rate-btn px-2 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold">Chậm</button>
-            <button type="button" data-rate="0.9" class="rate-btn px-2 py-1.5 rounded-lg border border-emerald-600 bg-emerald-50 text-xs font-semibold">Vừa</button>
-            <button type="button" data-rate="1" class="rate-btn px-2 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold">Chuẩn</button>
+            <button type="button" data-rate="0.6" class="rate-btn px-2 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold">Chậm</button>
+            <button type="button" data-rate="0.85" class="rate-btn px-2 py-1.5 rounded-lg border border-emerald-600 bg-emerald-50 text-xs font-semibold">Vừa</button>
+            <button type="button" data-rate="1.05" class="rate-btn px-2 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold">Chuẩn</button>
           </div>
 
           <button id="toggle-zh-btn" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer">
