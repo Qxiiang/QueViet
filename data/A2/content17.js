@@ -501,7 +501,7 @@ Object.assign(window.LESSONS_DATA["A2"][17], {
           correct: "Cái sáo trúc này giá bao nhiêu?"
         },
         {
-          words: ["một", "cân", "25.000", "xoài", "đồng", "giá."],
+          words: ["một", "cân", "25.000", "xoài", "đồng", "giá"],
           correct: "Một cân xoài giá 25.000 đồng."
         },
         {
