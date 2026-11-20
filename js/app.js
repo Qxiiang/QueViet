@@ -39,9 +39,71 @@ document.addEventListener("DOMContentLoaded", () => {
   if (closeSidebarBtn) closeSidebarBtn.addEventListener("click", closeMobileSidebar);
   if (backdrop) backdrop.addEventListener("click", closeMobileSidebar);
 
-  // ========== TTS tĩnh bằng Web Speech API (không cần server) ==========
+  // ========== TTS tĩnh bằng Web Speech API (hỗ trợ chọn giọng theo trình duyệt) ==========
   let _voicesCache = [];
   let _voicesReady = false;
+  const voiceSelector = document.getElementById("voice-selector");
+
+  function _getViVoices(list) {
+    return (list || []).filter(
+      (v) =>
+        (v.lang && v.lang.toLowerCase().startsWith("vi")) ||
+        /vietnam|vietnamese|tiếng việt|hoaimy|namminh|linh/i.test(v.name || "")
+    );
+  }
+
+  function _formatVoiceLabel(v) {
+    let label = v.name
+      .replace(/Microsoft\s+/i, "")
+      .replace(/Online\s*\(Natural\)\s*-\s*/i, "")
+      .replace(/Vietnamese\s*\(Vietnam\)/i, "")
+      .replace(/\(Vietnam\)/i, "")
+      .trim();
+
+    if (/HoaiMy/i.test(v.name)) label += " (Nữ - Miền Bắc)";
+    else if (/NamMinh/i.test(v.name)) label += " (Nam - Miền Bắc)";
+    else if (/An\b/i.test(v.name)) label += " (Nam - Miền Bắc)";
+    else if (/Google/i.test(v.name)) label += " (Nữ - Miền Nam)";
+    else if (/Linh/i.test(v.name)) label += " (Nữ - Apple)";
+
+    return label || v.name;
+  }
+
+  function _populateVoiceDropdown(allVoices) {
+    if (!voiceSelector) return;
+    const viVoices = _getViVoices(allVoices);
+    const savedVoiceName = localStorage.getItem("vn_speak_voice") || "";
+
+    // Sắp xếp ưu tiên giọng miền Bắc lên đầu danh sách
+    viVoices.sort((a, b) => {
+      const score = (v) => {
+        if (/HoaiMy/i.test(v.name)) return 1;
+        if (/NamMinh/i.test(v.name)) return 2;
+        if (/An\b/i.test(v.name)) return 3;
+        return 10;
+      };
+      return score(a) - score(b);
+    });
+
+    const optionsHtml = [
+      `<option value="">Giọng: Tự động (Ưu tiên Bắc)</option>`,
+      ...viVoices.map(
+        (v) =>
+          `<option value="${v.name.replace(/"/g, "&quot;")}" ${
+            v.name === savedVoiceName ? "selected" : ""
+          }>${_formatVoiceLabel(v)}</option>`
+      )
+    ];
+
+    voiceSelector.innerHTML = optionsHtml.join("");
+  }
+
+  if (voiceSelector) {
+    voiceSelector.addEventListener("change", () => {
+      localStorage.setItem("vn_speak_voice", voiceSelector.value);
+      window.speakVi("Xin chào, đây là giọng đọc tiếng Việt.", 0.95);
+    });
+  }
 
   function _loadVoices() {
     return new Promise((resolve) => {
@@ -49,6 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (list.length) {
         _voicesCache = list;
         _voicesReady = true;
+        _populateVoiceDropdown(list);
         resolve(list);
         return;
       }
@@ -59,11 +122,13 @@ document.addEventListener("DOMContentLoaded", () => {
       window.speechSynthesis.onvoiceschanged = () => {
         _voicesCache = window.speechSynthesis.getVoices();
         _voicesReady = true;
+        _populateVoiceDropdown(_voicesCache);
         resolve(_voicesCache);
       };
       setTimeout(() => {
         _voicesCache = window.speechSynthesis.getVoices();
         _voicesReady = true;
+        _populateVoiceDropdown(_voicesCache);
         resolve(_voicesCache);
       }, 400);
     });
@@ -71,10 +136,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function _pickViVoice() {
     const voices = _voicesCache.length ? _voicesCache : (window.speechSynthesis ? window.speechSynthesis.getVoices() : []);
+    const viVoices = _getViVoices(voices);
+    const chosenName = (voiceSelector && voiceSelector.value) || localStorage.getItem("vn_speak_voice") || "";
+
+    // 1. Nếu người dùng đã chọn thủ công một giọng trong menu -> dùng đúng giọng đó
+    if (chosenName) {
+      const exact = viVoices.find((v) => v.name === chosenName);
+      if (exact) return exact;
+    }
+
+    // 2. Chế độ Tự động: Ưu tiên giọng miền Bắc (HoaiMy -> NamMinh -> Microsoft An)
     return (
-      voices.find((v) => v.lang === "vi-VN" || v.lang === "vi_VN") ||
-      voices.find((v) => v.lang && v.lang.startsWith("vi")) ||
-      voices.find((v) => /vietnam|vietnamese|tiếng việt/i.test(v.name || "")) ||
+      viVoices.find((v) => /HoaiMy/i.test(v.name || "")) ||
+      viVoices.find((v) => /NamMinh/i.test(v.name || "")) ||
+      viVoices.find((v) => /Microsoft\s+An/i.test(v.name || "")) ||
+      viVoices.find((v) => v.lang === "vi-VN" || v.lang === "vi_VN") ||
+      viVoices[0] ||
       null
     );
   }
@@ -97,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Hàm phát âm tiếng Việt – dùng Web Speech API (không cần server)
-  window.speakVi = async function (text, rate = 0.9, el = null) {
+  window.speakVi = async function (text, rate = 0.85, el = null) {
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     if (!clean) return;
 
@@ -106,10 +183,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const saved = Number(localStorage.getItem("vn_speak_rate") || "0.9");
-    const base = Number.isFinite(saved) ? saved : 0.9;
-    // rate truyền vào <= 0.7 thì đọc chậm hơn
-    const speed = rate <= 0.7 ? Math.max(0.55, base * 0.75) : base;
+    const saved = Number(localStorage.getItem("vn_speak_rate") || "0.85");
+    const base = Number.isFinite(saved) ? saved : 0.85;
+    const speed = rate <= 0.7 ? Math.max(0.5, base * 0.75) : base;
 
     // Highlight nút đang đọc
     document.querySelectorAll(".speaking-pill").forEach((item) => {
@@ -119,7 +195,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!_voicesReady) await _loadVoices();
 
-    // Dừng mọi utterance đang chạy
     window.speechSynthesis.cancel();
     if (window.speechSynthesis.paused) window.speechSynthesis.resume();
 
@@ -151,13 +226,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.speechSynthesis.speak(utt);
 
-    // Chrome đôi khi bị "stuck" – force resume
     setTimeout(() => {
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();
     }, 40);
   };
 
-  // Preload voices khi mở trang
   if (window.speechSynthesis) _loadVoices();
 
   // Hàm tạo Tab con (Sub-tabs)
@@ -361,7 +434,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Thanh chọn tốc độ đọc (Chậm / Vừa / Chuẩn)
   const rateBtns = document.querySelectorAll(".rate-btn");
   if (rateBtns.length) {
-    const savedRate = localStorage.getItem("vn_speak_rate") || "0.9";
+    const savedRate = localStorage.getItem("vn_speak_rate") || "0.85";
 
     const markActive = (activeBtn) => {
       rateBtns.forEach((b) => {
@@ -372,7 +445,6 @@ document.addEventListener("DOMContentLoaded", () => {
       activeBtn.classList.remove("border-slate-300");
     };
 
-    // Khôi phục nút đang chọn sau khi tải lại trang
     const initialActive = Array.from(rateBtns).find((b) => b.dataset.rate === savedRate) || rateBtns[1];
     markActive(initialActive);
 
@@ -402,10 +474,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (targetEl) targetEl.classList.remove("hidden");
     });
   });
-  // Không còn prefetch server TTS (đã chuyển sang Web Speech API)
-  function prefetchLessonAudio(lesson) {
-    // no-op: giọng đọc dùng sẵn trên trình duyệt
-  }
 
   function renderLesson(lesson) {
     const badgeEl = document.getElementById("lesson-badge");
@@ -586,7 +654,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     ${(q.options || [])
                       .map(
                         (opt, oIdx) => `
-                      <button onclick="checkMCQ(this, ${oIdx === q.answer})" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-medium transition">
+                      <button type="button" onclick="checkMCQ(this, ${oIdx === q.answer})" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-medium transition cursor-pointer">
                         ${opt}
                       </button>`
                       )
@@ -643,7 +711,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   ${(q.options || [])
                     .map(
                       (opt, oIdx) => `
-                    <button onclick="checkMCQ(this, ${oIdx === q.answer})" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-medium transition">
+                    <button type="button" onclick="checkMCQ(this, ${oIdx === q.answer})" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-medium transition cursor-pointer">
                       ${opt}
                     </button>`
                     )
@@ -739,7 +807,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   <div class="flex flex-wrap items-center gap-2 text-sm">
                     <button
                       type="button"
-                      onclick="speakVi('${item.fullAudio.replace(/'/g, "\\'")}', 0.9, this)"
+                      onclick="speakVi('${item.fullAudio.replace(/'/g, "\\'")}', 0.85, this)"
                       title="Bấm để nghe"
                       class="w-8 h-8 rounded-full bg-emerald-100 hover:bg-emerald-600 text-emerald-700 hover:text-white flex items-center justify-center transition shrink-0 cursor-pointer"
                     >
@@ -753,13 +821,22 @@ document.addEventListener("DOMContentLoaded", () => {
                       class="w-36 px-3 py-1 border border-slate-300 rounded-lg text-center font-bold text-emerald-700 bg-white focus:outline-none focus:border-emerald-500"
                     />
                     <span class="font-medium text-slate-800">${item.after}</span>
-                    <button
-                      type="button"
-                      onclick="checkListeningFill(${idx}, '${item.blank.replace(/'/g, "\\'")}' )"
-                      class="single-check-btn ml-auto bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg cursor-pointer"
-                    >
-                      Kiểm tra
-                    </button>
+                    <div class="ml-auto flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onclick="checkListeningFill(${idx}, '${item.blank.replace(/'/g, "\\'")}')"
+                        class="single-check-btn bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        Kiểm tra
+                      </button>
+                      <button
+                        type="button"
+                        onclick="showListeningFillAnswer(${idx}, '${item.blank.replace(/'/g, "\\'")}')"
+                        class="single-ans-btn bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        Đáp án
+                      </button>
+                    </div>
                   </div>
                   <div class="pl-10">
                     <span id="lf-res-${idx}" class="text-xs font-bold"></span>
@@ -774,7 +851,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 onclick="checkAllExercises(this)"
                 class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-xl shadow-xs flex items-center gap-2 cursor-pointer"
               >
-                <i class="fa-solid fa-check-double"></i> Kiểm tra cả bài <span class="zh-text font-normal">(检查全部)</span>
+                <i class="fa-solid fa-check-double"></i> Đáp án cả bài <span class="zh-text font-normal">(全部答案)</span>
               </button>
               <span class="batch-score text-sm font-bold text-emerald-800"></span>
             </div>
@@ -800,7 +877,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onclick="speakVi('${tf.audioText.replace(/'/g, "\\'")}', 0.9)"
+                  onclick="speakVi('${tf.audioText.replace(/'/g, "\\'")}', 0.85)"
                   class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer"
                 >
                   <i class="fa-solid fa-headphones"></i> Nghe hội thoại
@@ -868,7 +945,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 onclick="checkAllTrueFalse(this)"
                 class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-xl shadow-xs flex items-center gap-2 cursor-pointer"
               >
-                <i class="fa-solid fa-check-double"></i> Kiểm tra cả bài <span class="zh-text font-normal">(检查全部)</span>
+                <i class="fa-solid fa-check-double"></i> Đáp án cả bài <span class="zh-text font-normal">(全部答案)</span>
               </button>
               <span class="batch-score text-sm font-bold text-emerald-800"></span>
             </div>
@@ -909,11 +986,14 @@ document.addEventListener("DOMContentLoaded", () => {
                         )
                         .join("")}
                     </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                      <button type="button" data-idx="${idx}" data-correct="${item.correct.replace(/"/g, "&quot;")}" onclick="checkWordOrder(${idx}, '${safeCorrect}')" class="single-wo-check-btn bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <button type="button" data-idx="${idx}" data-correct="${item.correct.replace(/"/g, "&quot;")}" onclick="checkWordOrder(${idx}, '${safeCorrect}')" class="single-wo-check-btn bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg cursor-pointer">
                         Kiểm tra (检查)
                       </button>
-                      <button type="button" onclick="resetWordOrder(${idx})" class="text-slate-500 hover:text-slate-700 text-xs underline cursor-pointer">
+                      <button type="button" onclick="showWordOrderAnswer(${idx}, '${safeCorrect}')" class="single-wo-ans-btn bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3.5 py-2 rounded-lg cursor-pointer">
+                        Đáp án (答案)
+                      </button>
+                      <button type="button" onclick="resetWordOrder(${idx})" class="text-slate-500 hover:text-slate-700 text-xs underline ml-1 cursor-pointer">
                         Làm lại
                       </button>
                     </div>
@@ -929,7 +1009,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 onclick="checkAllWordOrder(this)"
                 class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-xl shadow-xs flex items-center gap-2 cursor-pointer"
               >
-                <i class="fa-solid fa-check-double"></i> Kiểm tra cả bài <span class="zh-text font-normal">(检查全部)</span>
+                <i class="fa-solid fa-check-double"></i> Đáp án cả bài <span class="zh-text font-normal">(全部答案)</span>
               </button>
               <span class="batch-score text-sm font-bold text-emerald-800"></span>
             </div>
@@ -981,9 +1061,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     <span>${idx + 1}. ${fb.before}</span>
                     <input type="text" id="fb-input-${idx}" onfocus="window.activeFbInput = this" placeholder="..." class="fb-input w-32 px-2.5 py-1 border border-slate-300 rounded-md text-center font-bold text-emerald-700 bg-white focus:outline-none focus:border-emerald-500" />
                     <span>${fb.after}</span>
-                    <button type="button" onclick="checkFillBlank(${idx}, '${fb.blank.replace(/'/g, "\\'")}')" class="single-check-btn ml-auto bg-slate-800 hover:bg-slate-700 text-white text-xs px-3 py-1.5 rounded-lg cursor-pointer">
-                      Kiểm tra
-                    </button>
+                    <div class="ml-auto flex items-center gap-1.5">
+                      <button type="button" onclick="checkFillBlank(${idx}, '${fb.blank.replace(/'/g, "\\'")}')" class="single-check-btn bg-slate-800 hover:bg-slate-700 text-white text-xs px-3 py-1.5 rounded-lg cursor-pointer">
+                        Kiểm tra
+                      </button>
+                      <button type="button" onclick="showFillBlankAnswer(${idx}, '${fb.blank.replace(/'/g, "\\'")}')" class="single-ans-btn bg-amber-500 hover:bg-amber-600 text-white text-xs px-3 py-1.5 rounded-lg cursor-pointer">
+                        Đáp án
+                      </button>
+                    </div>
                   </div>
                   <p id="fb-res-${idx}" class="text-xs font-bold"></p>
                 </div>`
@@ -997,7 +1082,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 onclick="checkAllExercises(this)"
                 class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-xl shadow-xs flex items-center gap-2 cursor-pointer"
               >
-                <i class="fa-solid fa-check-double"></i> Kiểm tra cả bài <span class="zh-text font-normal">(检查全部)</span>
+                <i class="fa-solid fa-check-double"></i> Đáp án cả bài <span class="zh-text font-normal">(全部答案)</span>
               </button>
               <span class="batch-score text-sm font-bold text-emerald-800"></span>
             </div>
@@ -1042,13 +1127,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =========================================================================
-  // CÁC HÀM KIỂM TRA BÀI TẬP
+  // CÁC HÀM KIỂM TRA & HIỆN ĐÁP ÁN BÀI TẬP
   // =========================================================================
+
+  // 1. Trắc nghiệm Đọc hiểu (sửa lỗi nền trắng đè màu xanh)
   window.checkMCQ = function (btn, isCorrect) {
     const siblings = btn.parentElement.querySelectorAll("button");
     siblings.forEach((b) => {
       b.classList.remove("bg-emerald-600", "text-white", "border-emerald-600", "bg-rose-500", "border-rose-500");
+      b.classList.add("bg-white", "hover:bg-slate-100");
     });
+
+    btn.classList.remove("bg-white", "hover:bg-slate-100");
     if (isCorrect) {
       btn.classList.add("bg-emerald-600", "text-white", "border-emerald-600");
     } else {
@@ -1056,6 +1146,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // 2. Nghe & Điền từ
   window.checkListeningFill = function (idx, expected) {
     const input = document.getElementById(`lf-input-${idx}`);
     const res = document.getElementById(`lf-res-${idx}`);
@@ -1063,22 +1154,31 @@ document.addEventListener("DOMContentLoaded", () => {
     const exp = expected.trim().toLowerCase();
 
     if (val === exp) {
-      res.textContent = `✓ Chính xác! Đáp án: ${expected}`;
+      res.textContent = "✓ Chính xác!";
       res.className = "text-xs font-bold text-emerald-600";
       return true;
     } else {
-      res.textContent = `✗ Chưa đúng. Đáp án: ${expected}`;
+      res.textContent = "✗ Chưa đúng.";
       res.className = "text-xs font-bold text-rose-600";
       return false;
     }
   };
 
+  window.showListeningFillAnswer = function (idx, expected) {
+    const res = document.getElementById(`lf-res-${idx}`);
+    res.textContent = `Đáp án: ${expected}`;
+    res.className = "text-xs font-bold text-amber-700";
+  };
+
+  // 3. Nghe hội thoại Đúng / Sai
   window.checkTrueFalse = function (btn, idx, userChoice, actualAnswer) {
     const siblings = btn.parentElement.querySelectorAll("button");
     siblings.forEach((b) => {
       b.classList.remove("bg-emerald-600", "text-white", "border-emerald-600", "bg-rose-500", "border-rose-500", "selected-choice");
+      b.classList.add("bg-white", "hover:bg-slate-100");
     });
 
+    btn.classList.remove("bg-white", "hover:bg-slate-100");
     btn.classList.add("selected-choice");
     const isCorrect = userChoice === actualAnswer;
     if (isCorrect) {
@@ -1091,6 +1191,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (expEl) expEl.classList.remove("hidden");
   };
 
+  // 4. Sắp xếp từ thành câu
   window.moveWord = function (btn, idx) {
     const target = document.getElementById(`wo-target-${idx}`);
     const pool = document.getElementById(`wo-pool-${idx}`);
@@ -1120,17 +1221,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const normalize = (s) => s.toLowerCase().replace(/[.,!?]/g, "").replace(/\s+/g, " ").trim();
 
     if (normalize(userWords.join(" ")) === normalize(correctSentence)) {
-      res.textContent = `✓ Chính xác! Đáp án: "${correctSentence}"`;
+      res.textContent = "✓ Chính xác!";
       res.className = "mt-2.5 text-xs font-bold text-emerald-600";
       if (!silent) speakVi(correctSentence);
       return true;
     } else {
-      res.textContent = `✗ Chưa đúng. Đáp án: "${correctSentence}"`;
+      res.textContent = "✗ Chưa đúng.";
       res.className = "mt-2.5 text-xs font-bold text-rose-600";
       return false;
     }
   };
 
+  window.showWordOrderAnswer = function (idx, correctSentence) {
+    const res = document.getElementById(`wo-res-${idx}`);
+    res.textContent = `Đáp án: "${correctSentence}"`;
+    res.className = "mt-2.5 text-xs font-bold text-amber-700";
+    speakVi(correctSentence);
+  };
+
+  // 5. Điền từ cho sẵn
   window.pickFillBlankWord = function (btn, word) {
     const card = btn.closest(".exercise-card");
     let targetInput = window.activeFbInput && card.contains(window.activeFbInput) ? window.activeFbInput : null;
@@ -1152,27 +1261,38 @@ document.addEventListener("DOMContentLoaded", () => {
     const res = document.getElementById(`fb-res-${idx}`);
     const val = input.value.trim().toLowerCase();
     if (val === expected.toLowerCase()) {
-      res.textContent = `✓ Chính xác! Đáp án: ${expected}`;
+      res.textContent = "✓ Chính xác!";
       res.className = "text-xs font-bold text-emerald-600";
       return true;
     } else {
-      res.textContent = `✗ Chưa đúng. Đáp án: ${expected}`;
+      res.textContent = "✗ Chưa đúng.";
       res.className = "text-xs font-bold text-rose-600";
       return false;
     }
   };
 
+  window.showFillBlankAnswer = function (idx, expected) {
+    const res = document.getElementById(`fb-res-${idx}`);
+    res.textContent = `Đáp án: ${expected}`;
+    res.className = "text-xs font-bold text-amber-700";
+  };
+
+  // 6. Các nút "Đáp án cả bài"
   window.checkAllExercises = function (btn) {
     const card = btn.closest(".exercise-card");
     const singleBtns = card.querySelectorAll(".single-check-btn");
+    const ansBtns = card.querySelectorAll(".single-ans-btn");
     let correctCount = 0;
 
-    singleBtns.forEach((b) => {
+    singleBtns.forEach((b, i) => {
       b.click();
       const row = b.closest(".rounded-xl");
-      const resText = row ? row.querySelector("[id$='-res-'], span[id*='-res-']") : null;
-      if (resText && resText.textContent.startsWith("✓")) {
+      const resText = row ? row.querySelector("[id$='-res-'], span[id*='-res-'], p[id*='-res-']") : null;
+      const isOk = resText && resText.textContent.startsWith("✓");
+      if (isOk) {
         correctCount++;
+      } else if (ansBtns[i]) {
+        ansBtns[i].click();
       }
     });
 
@@ -1196,7 +1316,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (selectedBtn) {
         const userChoice = selectedBtn.dataset.choice === "true";
         if (userChoice === actualAnswer) correctCount++;
-      } else if (correctBtn) {
+      }
+      if (correctBtn) {
+        correctBtn.classList.remove("bg-white", "hover:bg-slate-100");
         correctBtn.classList.add("bg-emerald-600", "text-white", "border-emerald-600");
       }
 
@@ -1220,6 +1342,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const correctSentence = b.dataset.correct;
       if (window.checkWordOrder(idx, correctSentence, true)) {
         correctCount++;
+      } else {
+        const res = document.getElementById(`wo-res-${idx}`);
+        if (res) {
+          res.textContent = `✗ Chưa đúng. Đáp án: "${correctSentence}"`;
+          res.className = "mt-2.5 text-xs font-bold text-rose-600";
+        }
       }
     });
 
@@ -1304,7 +1432,7 @@ document.addEventListener("DOMContentLoaded", () => {
       wbSpeakBtn.addEventListener("click", () => {
         const selection = window.getSelection().toString().trim();
         const textToRead = selection || wbEditor.innerText.trim();
-        if (textToRead) speakVi(textToRead, 0.9);
+        if (textToRead) speakVi(textToRead, 0.85);
       });
     }
 
