@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const defaultIcon = btn.dataset.defaultIcon || "fa-headphones";
     const baseColor = btn.dataset.baseColor || "bg-emerald-600 hover:bg-emerald-700";
 
-    btn.className = `${baseColor} text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition`;
+    btn.className = `passage-audio-btn ${baseColor} text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition`;
     btn.innerHTML = `<i class="fa-solid ${defaultIcon}"></i> ${defaultLabel}`;
 
     const restartBtn = btn.parentElement ? btn.parentElement.querySelector(".restart-passage-btn") : null;
@@ -194,20 +194,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (restartBtn) restartBtn.classList.remove("hidden");
 
     if (state === "playing") {
-      btn.className = "bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition";
+      btn.className = "passage-audio-btn bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition";
       btn.innerHTML = `<i class="fa-solid fa-pause"></i> Tạm dừng`;
     } else if (state === "paused") {
-      btn.className = "bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition";
+      btn.className = "passage-audio-btn bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition";
       btn.innerHTML = `<i class="fa-solid fa-play"></i> Tiếp tục`;
     }
   }
 
-  // Điều khiển Nghe cả đoạn / Tạm dừng / Tiếp tục / Nghe lại từ đầu
-  window.togglePassageAudio = function (btn, text, forceRestart = false) {
+  // Điều khiển Nghe cả đoạn / Tạm dừng / Tiếp tục / Nghe lại từ đầu (hỗ trợ truyền tốc độ rate)
+  window.togglePassageAudio = function (btn, text, forceRestart = false, rate = 0.85) {
     if (!window.speechSynthesis) {
       _showTtsToast("Trình duyệt không hỗ trợ đọc văn bản. Hãy dùng Chrome hoặc Edge.");
       return;
     }
+
+    const effectiveRate = Number(btn.dataset.rate) || rate;
 
     // Nếu đang thao tác trên chính nút này và không yêu cầu phát lại từ đầu
     if (!forceRestart && _activePassageBtn === btn) {
@@ -231,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
     _activePassageBtn = btn;
     _setPassageBtnState(btn, "playing");
 
-    window.speakVi(text, 0.85, null, () => {
+    window.speakVi(text, effectiveRate, null, () => {
       _resetPassageBtn(btn);
     });
   };
@@ -239,7 +241,8 @@ document.addEventListener("DOMContentLoaded", () => {
   window.restartPassageAudio = function (restartBtn, text) {
     const mainBtn = restartBtn.parentElement ? restartBtn.parentElement.querySelector(".passage-audio-btn") : null;
     if (mainBtn) {
-      window.togglePassageAudio(mainBtn, text, true);
+      const rate = Number(mainBtn.dataset.rate) || 0.85;
+      window.togglePassageAudio(mainBtn, text, true, rate);
     }
   };
 
@@ -1222,9 +1225,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 5. Nghe viết chính tả
+    // 5. Nghe viết chính tả (hỗ trợ Tạm dừng / Tiếp tục & Nghe lại từ đầu cho cả 2 tốc độ)
     if (ex.dictationText) {
       const tabLabel = `Bài ${exCounter++}`;
+      const safeDictation = ex.dictationText.replace(/'/g, "\\'");
       subItems.push({
         labelVi: tabLabel,
         labelZh: "听写练习",
@@ -1232,13 +1236,52 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
             <h3 class="font-bold text-lg text-emerald-800 mb-1">Nghe và viết chính tả (听写练习)</h3>
             <p class="text-xs text-slate-500 mb-4">Bấm nút nghe đoạn văn, sau đó gõ lại nội dung bạn nghe được vào ô bên dưới.</p>
-            <div class="flex flex-wrap gap-2 mb-3">
-              <button type="button" onclick="speakVi('${ex.dictationText.replace(/'/g, "\\'")}', 0.85)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer">
-                <i class="fa-solid fa-play"></i> Nghe tốc độ chuẩn
-              </button>
-              <button type="button" onclick="speakVi('${ex.dictationText.replace(/'/g, "\\'")}', 0.6)" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer">
-                <i class="fa-solid fa-ear-listen"></i> Nghe chậm để chép
-              </button>
+            <div class="flex flex-wrap items-center gap-3 mb-3">
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  data-rate="0.85"
+                  data-default-label="Nghe tốc độ chuẩn"
+                  data-default-icon="fa-play"
+                  data-base-color="bg-emerald-600 hover:bg-emerald-700"
+                  onclick="togglePassageAudio(this, '${safeDictation}', false, 0.85)"
+                  class="passage-audio-btn bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition"
+                >
+                  <i class="fa-solid fa-play"></i> Nghe tốc độ chuẩn
+                </button>
+                <button
+                  type="button"
+                  title="Nghe lại từ đầu (tốc độ chuẩn)"
+                  onclick="restartPassageAudio(this, '${safeDictation}')"
+                  class="restart-passage-btn hidden px-2.5 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
+                >
+                  <i class="fa-solid fa-rotate-right"></i>
+                  <span class="hidden sm:inline">Từ đầu</span>
+                </button>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  data-rate="0.6"
+                  data-default-label="Nghe chậm để chép"
+                  data-default-icon="fa-ear-listen"
+                  data-base-color="bg-amber-500 hover:bg-amber-600"
+                  onclick="togglePassageAudio(this, '${safeDictation}', false, 0.6)"
+                  class="passage-audio-btn bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition"
+                >
+                  <i class="fa-solid fa-ear-listen"></i> Nghe chậm để chép
+                </button>
+                <button
+                  type="button"
+                  title="Nghe lại từ đầu (tốc độ chậm)"
+                  onclick="restartPassageAudio(this, '${safeDictation}')"
+                  class="restart-passage-btn hidden px-2.5 py-2 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
+                >
+                  <i class="fa-solid fa-rotate-right"></i>
+                  <span class="hidden sm:inline">Từ đầu</span>
+                </button>
+              </div>
             </div>
             <textarea id="dictation-input" rows="4" class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-emerald-500" placeholder="Gõ đoạn văn chính tả vào đây..."></textarea>
             <div class="mt-3 flex items-center gap-3">
