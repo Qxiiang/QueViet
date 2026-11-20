@@ -123,12 +123,12 @@ window.LESSONS_DATA["A2"][15] = Object.assign(window.LESSONS_DATA["A2"][15] || {
     ],
 
     wordOrder: [
-      { words: ["ở", "mùa hè", "Việt Nam", "nắng", "nóng", "và", "trời."], correct: "Mùa hè ở Việt Nam trời nắng và nóng." },
-      { words: ["ở", "mùa xuân", "ấm", "trời", "miền Bắc."], correct: "Mùa xuân ở miền Bắc trời ấm." },
+      { words: ["ở", "mùa hè", "Việt Nam", "nắng", "nóng", "và", "trời"], correct: "Mùa hè ở Việt Nam trời nắng và nóng." },
+      { words: ["ở", "mùa xuân", "ấm", "trời", "miền Bắc"], correct: "Mùa xuân ở miền Bắc trời ấm." },
       { words: ["mát", "và", "mùa thu", "dễ chịu", "thời tiết."], correct: "Mùa thu thời tiết mát và dễ chịu." },
-      { words: ["lạnh", "mùa đông", "rất", "trời."], correct: "Mùa đông trời rất lạnh." },
-      { words: ["miền Nam", "ở", "có", "2 mùa", "mùa khô", "là", "và", "mùa mưa."], correct: "Ở miền Nam có 2 mùa là mùa khô và mùa mưa." },
-      { words: ["tôi", "thích", "mùa thu", "rất."], correct: "Tôi rất thích mùa thu." }
+      { words: ["lạnh", "mùa đông", "rất", "trời"], correct: "Mùa đông trời rất lạnh." },
+      { words: ["miền Nam", "ở", "có", "2 mùa", "mùa khô", "là", "và", "mùa mưa"], correct: "Ở miền Nam có 2 mùa là mùa khô và mùa mưa." },
+      { words: ["tôi", "thích", "mùa thu", "rất"], correct: "Tôi rất thích mùa thu." }
     ],
 
     fillBlanks: [
